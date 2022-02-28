@@ -216,7 +216,7 @@ int main(int argc, char* argv[])
 		client.set_db(dbnum);
 
 	acl::redis cmd(&client);
-
+test_set_eval(cmd,1);
 	bool ret;
 
 	if (command == "set")
@@ -260,3 +260,72 @@ int main(int argc, char* argv[])
 #endif
 	return 0;
 }
+
+static bool test_set_eval(acl::redis& cmd, int n)
+{
+	acl::string key, val;
+
+	for (int i = 0; i < n; i++)
+	{
+		key.format("%s_%d", __keypre.c_str(), i);
+		val.format("val_%s", key.c_str());
+		cmd.clear();
+		std::vector<acl::string> k{"test_key_0"};
+		std::vector<acl::string> v{"val_10000011111111111"};
+		acl::string res ;
+		char buf[10000] = {0};
+		bool re;
+
+		//cmd.set("test_key_0","1223111113");
+		std::vector<acl::string> scripts{"ada0bc9efe2392bdcc0083f7f8deaca2da7f32ec"};
+		std::vector<bool> out;
+		int result = cmd.script_exists(scripts, out);
+		//cmd.eval("ada0bc9efe2392bdcc0083f7f8deaca2da7f32ec",k,v);
+		//printf(" eval_string get key: %s ok, val: %s\r\n", key.c_str(),buf);
+		cmd.evalsha("e6def56fa72ad52bc04105fffad285a8d26e49db",k,v);
+		printf(" eval_string get key: %s ok, val: %s\r\n", key.c_str(),res.c_str());
+
+	}
+
+	return true;
+}
+/*
+1.通过lua文件调用redis
+[root@iZbp118g1g7afz4aq1d5tqZ redis-5.0.4]# cat setvalue.lua 
+local key = KEYS[1]
+local val = ARGV[1]
+if redis.call("EXISTS",key) == 1 then
+        return redis.call("SET",key,val)
+else
+        return "123"
+end
+
+
+2.
+[root@iZbp118g1g7afz4aq1d5tqZ redis-5.0.4]# ./src/redis-cli -h 127.0.0.1 -p 6379 -a 295911 SCRIPT LOAD "$(cat setvalue.lua)"
+Warning: Using a password with '-a' or '-u' option on the command line interface may not be safe.
+"e6def56fa72ad52bc04105fffad285a8d26e49db"
+
+3.
+127.0.0.1:6379> get test_key_0
+"val_10000011111111111"
+
+4.
+127.0.0.1:6379> evalsha e6def56fa72ad52bc04105fffad285a8d26e49db 2 test_key_0 , 1111111
+OK
+
+5.
+127.0.0.1:6379> get test_key_0
+"1111111"
+
+6.acl redis调用
+std::vector<acl::string> k{"test_key_0"};
+std::vector<acl::string> v{"val_10000011111111111"};
+cmd.evalsha("e6def56fa72ad52bc04105fffad285a8d26e49db",k,v);
+
+
+编译acl
+https://github.com/acl-dev/acl下载acl库
+windows编译acl_cpp_vc*.sln，我这里是vs2017,无需修改属性直接编译通过
+acl-3.5.3-0\lib_acl_cpp\samples\redis下有使用redis客户端的例子(如redis_string、redis_set、redis_hash是操作redis数据类型的例子，redis_pubsub是发布订阅的例子)，直接编译通过可以跑起来
+*/
